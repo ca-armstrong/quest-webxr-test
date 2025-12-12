@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Quest 3 WebXR Cube</title>
+    <title>Quest 3 WebXR Cube Info Card</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       body {
@@ -39,22 +39,23 @@
   </head>
   <body>
     <div id="info">
-      Spinning cube test. On Quest, tap the button below to try AR.
+      Tap/click the cube to toggle the info card. On Quest, use the controller trigger.
     </div>
     <button id="enter-ar" disabled>Checking AR support...</button>
 
-    <!-- Three.js core from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.3/build/three.min.js"></script>
 
     <script>
-      let scene, camera, renderer, cube;
+      let scene, camera, renderer, cube, infoCard;
       let xrSession = null;
+      let controller;
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
 
-      // Basic Three.js setup (spinning cube)
       function initThree() {
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.xr.enabled = true; // enable WebXR support
+        renderer.xr.enabled = true;
         document.body.appendChild(renderer.domElement);
 
         scene = new THREE.Scene();
@@ -68,19 +69,51 @@
         camera.position.z = 2;
 
         const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(1, 1, 1);
+        light.position.set(1, 3, 2);
         scene.add(light);
 
         const ambient = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambient);
 
+        // Cube at table height
         const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
         const material = new THREE.MeshNormalMaterial();
         cube = new THREE.Mesh(geometry, material);
-        cube.position.set(0, 0, -1); // 1 meter in front
+        cube.position.set(0, 0.8, -1); // 0.8m up, 1m in front (local-floor space)
         scene.add(cube);
 
+        // Info card: simple plane above the cube
+        const cardWidth = 0.4;
+        const cardHeight = 0.25;
+        const cardGeo = new THREE.PlaneGeometry(cardWidth, cardHeight);
+        const cardMat = new THREE.MeshBasicMaterial({
+          color: 0x2222ff,
+          side: THREE.DoubleSide
+        });
+        infoCard = new THREE.Mesh(cardGeo, cardMat);
+        infoCard.position.set(0, 0.8 + 0.3, -1); // above cube
+        infoCard.visible = false; // hidden until clicked
+        scene.add(infoCard);
+
+        // Simple white text-ish rectangle on the card
+        const innerGeo = new THREE.PlaneGeometry(cardWidth * 0.9, cardHeight * 0.6);
+        const innerMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          side: THREE.DoubleSide
+        });
+        const inner = new THREE.Mesh(innerGeo, innerMat);
+        inner.position.set(0, 0, 0.001);
+        infoCard.add(inner);
+
+        // Desktop click handling (raycast from mouse)
+        window.addEventListener("click", onMouseClick);
         window.addEventListener("resize", onWindowResize);
+
+        // WebXR controller for Quest
+        controller = renderer.xr.getController(0);
+        controller.addEventListener("selectstart", onControllerSelect);
+        scene.add(controller);
+
         renderer.setAnimationLoop(animate);
       }
 
@@ -91,14 +124,50 @@
       }
 
       function animate() {
-        if (cube) {
-          cube.rotation.x += 0.01;
-          cube.rotation.y += 0.01;
+        // Make the info card always face the camera (billboard)
+        if (infoCard && infoCard.visible) {
+          infoCard.quaternion.copy(camera.quaternion);
         }
         renderer.render(scene, camera);
       }
 
-      // WebXR AR setup
+      // Mouse click on desktop browser
+      function onMouseClick(event) {
+        // Normalize mouse coordinates (-1 to 1)
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(cube, true);
+
+        if (intersects.length > 0) {
+          toggleInfoCard();
+        }
+      }
+
+      // Controller select in WebXR (Quest)
+      function onControllerSelect() {
+        if (!cube) return;
+
+        // Raycast from controller forward
+        const tempMatrix = new THREE.Matrix4();
+        tempMatrix.identity().extractRotation(controller.matrixWorld);
+
+        raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+        raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+        const intersects = raycaster.intersectObject(cube, true);
+
+        if (intersects.length > 0) {
+          toggleInfoCard();
+        }
+      }
+
+      function toggleInfoCard() {
+        infoCard.visible = !infoCard.visible;
+      }
+
+      // WebXR AR support check
       async function checkWebXRSupport() {
         const arButton = document.getElementById("enter-ar");
         if (!navigator.xr) {
@@ -129,6 +198,8 @@
 
         if (xrSession) {
           xrSession.end();
+          xrSession = null;
+          arButton.textContent = "Enter AR";
           return;
         }
 
@@ -140,7 +211,6 @@
           xrSession = session;
           arButton.textContent = "Exit AR";
 
-          // Transparent background so passthrough shows through
           renderer.xr.setReferenceSpaceType("local-floor");
           await renderer.xr.setSession(session);
         } catch (err) {
