@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Quest 3 WebXR Cube Info Card</title>
+    <title>Quest 3 WebXR Cube + Card</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       body {
@@ -16,7 +16,7 @@
         left: 10px;
         color: yellow;
         z-index: 10;
-        font-family: sans-serif;
+        font-family: system-ui, -apple-system, sans-serif;
       }
       #enter-ar {
         position: fixed;
@@ -39,10 +39,12 @@
   </head>
   <body>
     <div id="info">
-      Tap/click the cube to toggle the info card. On Quest, use the controller trigger.
+      Tap/click the cube to toggle the info card. On Quest, use the controller
+      trigger. Tap/point at the card to dismiss.
     </div>
     <button id="enter-ar" disabled>Checking AR support...</button>
 
+    <!-- Three.js core from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.3/build/three.min.js"></script>
 
     <script>
@@ -79,33 +81,31 @@
         const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
         const material = new THREE.MeshNormalMaterial();
         cube = new THREE.Mesh(geometry, material);
-        cube.position.set(0, 0.8, -1); // 0.8m up, 1m in front (local-floor space)
+        cube.position.set(0, 0.8, -1); // 0.8m up, 1m in front in local-floor space
         scene.add(cube);
 
-        // Info card: simple plane above the cube
-        const cardWidth = 0.4;
-        const cardHeight = 0.25;
-        const cardGeo = new THREE.PlaneGeometry(cardWidth, cardHeight);
+        // Info card using external PNG texture exported from card.html
+        const texture = new THREE.TextureLoader().load("card.png");
+        // Use your PNG's aspect; assuming 280x360-ish, adjust if needed
+        const texWidth = 280;
+        const texHeight = 360;
+        const aspect = texHeight / texWidth;
+        const cardWidthMeters = 0.35;
+        const cardHeightMeters = cardWidthMeters * aspect;
+
+        const cardGeo = new THREE.PlaneGeometry(
+          cardWidthMeters,
+          cardHeightMeters
+        );
         const cardMat = new THREE.MeshBasicMaterial({
-          color: 0x2222ff,
-          side: THREE.DoubleSide
+          map: texture,
+          transparent: true
         });
         infoCard = new THREE.Mesh(cardGeo, cardMat);
-        infoCard.position.set(0, 0.8 + 0.3, -1); // above cube
-        infoCard.visible = false; // hidden until clicked
+        infoCard.position.set(0, 0.8 + 0.4, -1); // just above cube
+        infoCard.visible = false;
         scene.add(infoCard);
 
-        // Simple white text-ish rectangle on the card
-        const innerGeo = new THREE.PlaneGeometry(cardWidth * 0.9, cardHeight * 0.6);
-        const innerMat = new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          side: THREE.DoubleSide
-        });
-        const inner = new THREE.Mesh(innerGeo, innerMat);
-        inner.position.set(0, 0, 0.001);
-        infoCard.add(inner);
-
-        // Desktop click handling (raycast from mouse)
         window.addEventListener("click", onMouseClick);
         window.addEventListener("resize", onWindowResize);
 
@@ -124,47 +124,67 @@
       }
 
       function animate() {
-        // Make the info card always face the camera (billboard)
+        // Make card always face the camera when visible
         if (infoCard && infoCard.visible) {
           infoCard.quaternion.copy(camera.quaternion);
         }
         renderer.render(scene, camera);
       }
 
-      // Mouse click on desktop browser
+      function showOrHideCard() {
+        if (!infoCard) return;
+        infoCard.visible = !infoCard.visible;
+      }
+
+      function hideCard() {
+        if (infoCard) infoCard.visible = false;
+      }
+
+      // Mouse click on desktop
       function onMouseClick(event) {
-        // Normalize mouse coordinates (-1 to 1)
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObject(cube, true);
 
-        if (intersects.length > 0) {
-          toggleInfoCard();
+        // Check cube first
+        const hitCube = raycaster.intersectObject(cube, true);
+        if (hitCube.length > 0) {
+          showOrHideCard();
+          return;
+        }
+
+        // If card visible, clicking on it dismisses
+        if (infoCard && infoCard.visible) {
+          const hitCard = raycaster.intersectObject(infoCard, true);
+          if (hitCard.length > 0) {
+            hideCard();
+          }
         }
       }
 
       // Controller select in WebXR (Quest)
       function onControllerSelect() {
-        if (!cube) return;
-
-        // Raycast from controller forward
         const tempMatrix = new THREE.Matrix4();
         tempMatrix.identity().extractRotation(controller.matrixWorld);
 
         raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
         raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
 
-        const intersects = raycaster.intersectObject(cube, true);
-
-        if (intersects.length > 0) {
-          toggleInfoCard();
+        // Check cube
+        const hitCube = raycaster.intersectObject(cube, true);
+        if (hitCube.length > 0) {
+          showOrHideCard();
+          return;
         }
-      }
 
-      function toggleInfoCard() {
-        infoCard.visible = !infoCard.visible;
+        // If card visible, pointing and selecting dismisses
+        if (infoCard && infoCard.visible) {
+          const hitCard = raycaster.intersectObject(infoCard, true);
+          if (hitCard.length > 0) {
+            hideCard();
+          }
+        }
       }
 
       // WebXR AR support check
