@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Card Design</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        margin: 0;
+        background: #f0f0f0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      #card {
+        width: 280px;
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        border: 1px solid #d0d0d0;
+        background: #ffffff;
+        padding: 16px 18px 20px 18px;
+        box-sizing: border-box;
+      }
+      #card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      #card-title {
+        font-weight: 600;
+        font-size: 18px;
+        color: #111111;
+      }
+      #card-close {
+        font-size: 18px;
+        cursor: default;
+        color: #555555;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 6px 0;
+        border-bottom: 1px solid #eeeeee;
+      }
+      .row:last-of-type {
+        border-bottom: none;
+      }
+      .label {
+        color: #777777;
+      }
+      .value {
+        color: #111111;
+      }
+      #button-wrapper {
+        margin-top: 18px;
+        text-align: center;
+      }
+      #dismiss-btn {
+        display: inline-block;
+        padding: 8px 18px;
+        border-radius: 20px;
+        border: 1px solid #333333;
+        background: #ffffff;
+        color: #111111;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="card">
+      <div id="card-header">
+        <div id="card-title">P3</div>
+        <div id="card-close">×</div>
+      </div>
+      <div class="row">
+        <div class="label">Speed</div>
+        <div class="value">0%</div>
+      </div>
+      <div class="row">
+        <div class="label">Mode</div>
+        <div class="value">Standby</div>
+      </div>
+      <div class="row">
+        <div class="label">Alarm</div>
+        <div class="value">None</div>
+      </div>
+      <div class="row">
+        <div class="label">Valve 1</div>
+        <div class="value">Closed</div>
+      </div>
+      <div class="row">
+        <div class="label">Valve 2</div>
+        <div class="value">Closed</div>
+      </div>
+      <div id="button-wrapper">
+        <div id="dismiss-btn">Dismiss</div>
+      </div>
+    </div>
+  </body>
+</html>
