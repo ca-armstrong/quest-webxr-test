@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Quest 3 WebXR Cube</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #222;
+      }
+      #info {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: yellow;
+        z-index: 10;
+        font-family: sans-serif;
+      }
+      #enter-ar {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        z-index: 10;
+        padding: 10px 16px;
+        background: #1e90ff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      #enter-ar:disabled {
+        background: #555;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">
+      Spinning cube test. On Quest, tap the button below to try AR.
+    </div>
+    <button id="enter-ar" disabled>Checking AR support...</button>
+
+    <!-- Three.js core from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.138.3/build/three.min.js"></script>
+
+    <script>
+      let scene, camera, renderer, cube;
+      let xrSession = null;
+
+      // Basic Three.js setup (spinning cube)
+      function initThree() {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.xr.enabled = true; // enable WebXR support
+        document.body.appendChild(renderer.domElement);
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera(
+          70,
+          window.innerWidth / window.innerHeight,
+          0.01,
+          100
+        );
+        camera.position.z = 2;
+
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(1, 1, 1);
+        scene.add(light);
+
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambient);
+
+        const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+        const material = new THREE.MeshNormalMaterial();
+        cube = new THREE.Mesh(geometry, material);
+        cube.position.set(0, 0, -1); // 1 meter in front
+        scene.add(cube);
+
+        window.addEventListener("resize", onWindowResize);
+        renderer.setAnimationLoop(animate);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function animate() {
+        if (cube) {
+          cube.rotation.x += 0.01;
+          cube.rotation.y += 0.01;
+        }
+        renderer.render(scene, camera);
+      }
+
+      // WebXR AR setup
+      async function checkWebXRSupport() {
+        const arButton = document.getElementById("enter-ar");
+        if (!navigator.xr) {
+          arButton.textContent = "WebXR not supported";
+          arButton.disabled = true;
+          return;
+        }
+
+        try {
+          const supported = await navigator.xr.isSessionSupported("immersive-ar");
+          if (supported) {
+            arButton.textContent = "Enter AR";
+            arButton.disabled = false;
+            arButton.addEventListener("click", onEnterAR);
+          } else {
+            arButton.textContent = "AR not supported";
+            arButton.disabled = true;
+          }
+        } catch (err) {
+          console.error(err);
+          arButton.textContent = "Error checking AR";
+          arButton.disabled = true;
+        }
+      }
+
+      async function onEnterAR() {
+        const arButton = document.getElementById("enter-ar");
+
+        if (xrSession) {
+          xrSession.end();
+          return;
+        }
+
+        try {
+          const session = await navigator.xr.requestSession("immersive-ar", {
+            requiredFeatures: ["local-floor"]
+          });
+
+          xrSession = session;
+          arButton.textContent = "Exit AR";
+
+          // Transparent background so passthrough shows through
+          renderer.xr.setReferenceSpaceType("local-floor");
+          await renderer.xr.setSession(session);
+        } catch (err) {
+          console.error("Failed to start AR session", err);
+        }
+      }
+
+      initThree();
+      checkWebXRSupport();
+    </script>
+  </body>
+</html>
